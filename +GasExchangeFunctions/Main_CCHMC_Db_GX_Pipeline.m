@@ -1,7 +1,7 @@
 clc; clear;
 
 
-excelFile = '\\rds6.cchmc.org\PulMed-43\CPIR_Share\Carter\09_gx_main_inputs\gx_main_input_CBM.xlsx';
+excelFile = 'C:\Users\bda5ik\Downloads\gx_main_input.xlsx';
 mainDir = '\\rds6.chmccorp.cchmc.org\PulMed-54\CPIR_Images_Database';
 WoodsDir = '\\Rds6.cchmc.org\pulmed-35\Woods_CPIR_Images';
 
@@ -23,13 +23,17 @@ GxFileCol    = T(:,11);
 GxAnatFileCol  = T(:,12);
 NoteCol      = T(:,13);
 RuneCol      = T(:,14);
+IQCol        = T(:,15);
+IPNoteCol    = T(:,16);
+AStatusCol   = T(:,17);
+AnalystCol   = T(:,18);
 
 nSubjects = size(SexCol,1);
 
 %% 
 
 clc;
-for i = 2:nSubjects%:nSubjects % always start from 2
+for i = 125 %2:nSubjects%:nSubjects % always start from 2
     fprintf('Processing subject %d of %d\n', i, nSubjects);
 
     if ismissing(AgeCol{i})
@@ -44,6 +48,18 @@ for i = 2:nSubjects%:nSubjects % always start from 2
     if ismissing(NoteCol{i})
         NoteCol{i} = "";
     end
+    if ismissing(IQCol{i})
+        IQCol{i} = "";
+    end    
+    if ismissing(IPNoteCol{i})
+        IPNoteCol{i} = "";
+    end    
+    if ismissing(AStatusCol{i})
+        AStatusCol{i} = "";
+    end   
+    if ismissing(AnalystCol{i})
+        AnalystCol{i} = 'Database';
+    end      
     if ismissing(CalFileCol{i})
         disp("no calibration .data file detected")
         CalFileCol{i} = "";
@@ -60,11 +76,15 @@ for i = 2:nSubjects%:nSubjects % always start from 2
     MainInput.ScannerSoftware  = '5.9.0';
     MainInput.SequenceType     = '3D-Radial';
     MainInput.denoiseXe        = 'no';
-    MainInput.Analyst          = 'Database';
+    MainInput.Analyst          = AnalystCol{i};
     MainInput.N4Bias           = 'yes';
     MainInput.AnalysisMethod   = '1-Point Dixon';
     MainInput.AgeCor           = 'no';   
    
+    MainInput.ImageQuality      = IQCol{i};
+    MainInput.Note              = NoteCol{i};
+    MainInput.ProcessingNotes   = IPNoteCol{i};
+    MainInput.AnalysisStatus    = AStatusCol{i};
 
     % Gx file
     if ismissing(GxFileCol{i}) 
@@ -160,8 +180,16 @@ for i = 2:nSubjects%:nSubjects % always start from 2
         if RuneCol{i} == 0
             GasExchangeFunctions.CCHMC_Db_GX_Pipeline(MainInput);
         elseif RuneCol{i} == 1
-            MainInput.UpdatedNote = T{i, 13};
-            MainInput.UpdatedImageQuality  = T{i, 15};
+            MainInput.UpdatedNote             = NoteCol{i};
+            MainInput.UpdatedImageQuality     = IQCol{i};
+            MainInput.UpdatedProcessingNotes  = IPNoteCol{i};
+            MainInput.UpdatedAnalysisStatus   = AStatusCol{i};
+
+            MainInput.ImageQuality      = IQCol{i};
+            MainInput.Note              = NoteCol{i};
+            MainInput.ProcessingNotes   = IPNoteCol{i};
+            MainInput.AnalysisStatus    = AStatusCol{i};
+ 
             GasExchangeFunctions.CCHMC_Db_GX_Pipeline_rerun(MainInput,analysispath);
         end
         % T{i,15} = MainInput.analysisfolder;

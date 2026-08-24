@@ -137,15 +137,24 @@ binWidth = (max(d_Normal(d_Normal>0)) - min(d_Normal(d_Normal>0))) / acnts;
 figure('position',[350 350 750 350]);
 histogram(d_Normal(d_Normal>0),'BinWidth',binWidth,'FaceColor','w','EdgeColor','k','FaceAlpha',0.5);
 hold on
-histogram(d_Incomplete(d_Incomplete>0),'BinWidth',binWidth,'FaceColor','y','EdgeColor','k','FaceAlpha',0.5);
-histogram(d_Complete(d_Complete>0),'BinWidth',binWidth,'FaceColor','r','EdgeColor','k','FaceAlpha',0.5);
-histogram(d_Hyper(d_Hyper>0),'BinWidth',binWidth,'FaceColor','b','EdgeColor','k','FaceAlpha',0.5);
+hist(d_Incomplete(d_Incomplete>0),bcnts);
+try
+    hist(d_Complete(d_Complete>0),ccnts);
+catch
+    hist(d_Complete(d_Complete>0));
+end
+hist(d_Hyper(d_Hyper>0),dcnts)
 
-% RH: fix corrupted ± byte (was U+FFFD replacement char, showed as "?" in legend)
-legend1 = sprintf('Normal: %0.2f±%0.2f (%0.1f%%)',md_Normal, sd_Normal, Normal);
-legend2 = sprintf('Incomplete: %0.2f±%0.2f (%0.1f%%)',md_Incomplete,sd_Incomplete,Incomplete);
-legend3 = sprintf('Complete: %0.2f±%0.2f (%0.1f%%)',md_Complete,sd_Complete, Complete);
-legend4 = sprintf('Hyper: %0.2f±%0.2f (%0.1f%%)',md_Hyper,sd_Hyper, Hyper);
+% Image settings:
+h = findobj(gcf,'Type','patch');
+set(h(1),'FaceColor','b','EdgeColor','k','facealpha',0.5);
+set(h(2),'FaceColor','r','EdgeColor','k','facealpha',0.5);
+set(h(3),'FaceColor','y','EdgeColor','k','facealpha',0.5);
+set(h(4),'FaceColor','w','EdgeColor','k','facealpha',0.5);
+legend1 = sprintf('Normal: %0.2f�%0.2f (%0.1f%%)',md_Normal, sd_Normal, Normal);
+legend2 = sprintf('Incomplete: %0.2f�%0.2f (%0.1f%%)',md_Incomplete,sd_Incomplete,Incomplete);
+legend3 = sprintf('Complete: %0.2f�%0.2f (%0.1f%%)',md_Complete,sd_Complete, Complete);
+legend4 = sprintf('Hyper: %0.2f�%0.2f (%0.1f%%)',md_Hyper,sd_Hyper, Hyper);
 legend({legend1 legend2 legend3 legend4});
 % title1 = sprintf('Ventilation Histogram');
 title2 = sprintf('\nVentilation Defect Percentage %0.1f%%',VDP);

@@ -270,16 +270,10 @@ function DiffusionAnalysis_Report(Diffusion, MainInput)
         resultssummary{i+1,3} = ref;
     end
 
-    % Insert Histogram Image
-    histImg = fullfile(Diffusion.outputpath,'LB_ADC_Histogram.png');
-    
-    if ~isfile(histImg)
-        histImg = fullfile(Diffusion.outputpath,'ADC_Histogram.png');
-    end
-    if isfile(histImg)
-        Global.exportToPPTX('addpicture',histImg,'Position',[8 6 8 3]);
-    end
-    % Global.exportToPPTX('addtext','Histogram', 'Position',[8.3 5.8  2 0.1], 'FontSize',14,'FontWeight','bold','Color',[1 0 0],'HorizontalAlignment','left');
+    % RH: histogram picture position moved below - it needs LB_DiffmapPos
+    % (computed after the montages), since a fixed y=6 overlapped the LB ADC
+    % Map montage whenever that montage's actual height exceeded the yStep
+    % budget between rows.
 
 
     % Add to slide
@@ -326,10 +320,13 @@ function DiffusionAnalysis_Report(Diffusion, MainInput)
 
     figLB_Diffmap = makeOneRowMontage(LB_Diffmap, 'LB_Diffmap');
     
-    XePos  = get(figXe, 'Position');
-    MskPos  = get(figMsk, 'Position');
-    ADCPos = get(figADC, 'Position');
-    LB_DiffmapPos = get(figLB_Diffmap, 'Position');
+    % RH: figXe/figMsk/figADC/figLB_Diffmap are now plain image arrays, not
+    % figure handles (see makeOneRowMontage) - build an equivalent
+    % [left bottom width height] vector from array size instead of get(...,'Position').
+    XePos  = [0 0 size(figXe,2) size(figXe,1)];
+    MskPos  = [0 0 size(figMsk,2) size(figMsk,1)];
+    ADCPos = [0 0 size(figADC,2) size(figADC,1)];
+    LB_DiffmapPos = [0 0 size(figLB_Diffmap,2) size(figLB_Diffmap,1)];
     
     % foldername = "ADC_Analysis\";
     % Venthist = imread([pptDir,'\', char(foldername) ,'TH_Histogram.png']);    
@@ -341,8 +338,32 @@ function DiffusionAnalysis_Report(Diffusion, MainInput)
     Global.exportToPPTX('addpicture', figMsk,  'Position', [x0 y0+yStep   scaleFactore*w scaleFactore*w*MskPos(4)/MskPos(3)]);
     Global.exportToPPTX('addpicture', figADC, 'Position', [x0 y0+2*yStep scaleFactore*w scaleFactore*w*ADCPos(4)/ADCPos(3)]);
     Global.exportToPPTX('addpicture', figLB_Diffmap, 'Position', [x0 y0+3*yStep scaleFactore*w scaleFactore*w* LB_DiffmapPos(4)/LB_DiffmapPos(3)]);
-    
-    
+
+    % RH: Insert Histogram Image - y position now computed from where the LB
+    % ADC Map montage actually ends (was a fixed y=6, which overlapped it).
+    histImg = fullfile(Diffusion.outputpath,'LB_ADC_Histogram.png');
+    if ~isfile(histImg)
+        histImg = fullfile(Diffusion.outputpath,'ADC_Histogram.png');
+    end
+    if isfile(histImg)
+        % RH: size from the image's own (now tightly-cropped) aspect ratio
+        % instead of a fixed box, which used to stretch/squish it. Centered
+        % under the montage column (x0 to x0+montageColWidth) instead of a
+        % fixed x=8, which put its left edge inside the results table's span.
+        histInfo = imfinfo(histImg);
+        histAspect = histInfo(1).Height / histInfo(1).Width;
+        montageColWidth = scaleFactore*w;
+        lastMontageBottom = y0 + 3*yStep + scaleFactore*w*LB_DiffmapPos(4)/LB_DiffmapPos(3);
+        histTop = lastMontageBottom + 0.2;
+        availHeight = 9 - 0.2 - histTop; % RH: keep it on the 16x9 slide
+        histWidth = min(montageColWidth, availHeight / histAspect);
+        histHeight = histWidth * histAspect;
+        histLeft = x0 + (montageColWidth - histWidth)/2; % RH: center under montages
+        Global.exportToPPTX('addpicture',histImg,'Position',[histLeft histTop histWidth histHeight]);
+    end
+    % Global.exportToPPTX('addtext','Histogram', 'Position',[8.3 5.8  2 0.1], 'FontSize',14,'FontWeight','bold','Color',[1 0 0],'HorizontalAlignment','left');
+
+
     Global.exportToPPTX('addtext','129Xe Image (b0)', 'Position',[x0 y0 2 0.1], 'FontSize',14,'FontWeight','bold','Color',[1 0 0],'HorizontalAlignment','left');
     Global.exportToPPTX('addtext','Mask Overlay', 'Position',[x0 y0+yStep 2 0.1], 'FontSize',14,'FontWeight','bold','Color',[1 0 0],'HorizontalAlignment','left');
     Global.exportToPPTX('addtext','ADC Map', 'Position',[x0 y0+2*yStep 2 0.1], 'FontSize',14,'FontWeight','bold','Color',[1 0 0],'HorizontalAlignment','left');
@@ -401,18 +422,10 @@ function DiffusionAnalysis_Report(Diffusion, MainInput)
     close all;
     
     % save report as a PDF
-    ppt = actxserver('PowerPoint.Application');
-    
-    presentation = ppt.Presentations.Open(pptxName);
+    % RH: PDF export now goes through Global.pptxToPdf, which uses
+    % PowerPoint COM on Windows and PowerPoint via AppleScript on macOS.
     PDFoutputPath = fullfile(pptDir,[pptxFileName,'.pdf']);
-    if exist(PDFoutputPath, 'file')
-        delete(PDFoutputPath);  % remove existing PDF to avoid overwrite conflict
-    end    
-    presentation.SaveAs(PDFoutputPath, 32);
-    pause(2);  % <-- allow time for file to be written
-    presentation.Close();
-    ppt.Quit();
-    delete(ppt);
+    Global.pptxToPdf(pptxName, PDFoutputPath);
 
  
     % ================================================================
@@ -464,7 +477,14 @@ function DiffusionAnalysis_Report(Diffusion, MainInput)
 
 end
 
-function figHandle = makeOneRowMontage(vol, figName)
+function montageImg = makeOneRowMontage(vol, figName) %#ok<INUSD>
+% RH: returns a plain RGB uint8 array instead of a figure handle.
+% exportToPPTX's addPicture calls getframe() on a figure/axes handle, and
+% getframe() on a 'Visible','off' figure returns a cropped/zoomed capture on
+% macOS (same bug found and fixed earlier in calculate_VDP_CCHMC.m /
+% calculate_LB_VDP.m). Passing a numeric array instead makes addPicture take
+% its imwrite-direct path, skipping getframe entirely. figName kept in the
+% signature for call-site compatibility; no longer used.
 
     sz = size(vol);
 
@@ -498,6 +518,7 @@ function figHandle = makeOneRowMontage(vol, figName)
             cIdx = (s-1)*W + (1:W);
             montageImg(:,cIdx,:) = vol(:,:,:,s);
         end
+        montageImg = im2uint8(montageImg);
     else
         montageImg = zeros(H, numSlices*W, 'like', vol);
 
@@ -505,31 +526,8 @@ function figHandle = makeOneRowMontage(vol, figName)
             cIdx = (s-1)*W + (1:W);
             montageImg(:,cIdx) = vol(:,:,s);
         end
+        % RH: mat2gray + repmat matches imshow(montageImg,[]) auto-scaling
+        % and grayscale colormap, without a figure/axes/getframe at all.
+        montageImg = im2uint8(repmat(mat2gray(montageImg), [1 1 3]));
     end
-
-    figHandle = figure('Name',figName, ...
-        'Visible','off', ...
-        'MenuBar','none', ...
-        'ToolBar','none', ...
-        'DockControls','off', ...
-        'Resize','off', ...
-        'Color','black', ...
-        'Units','pixels');
-
-    ax = axes('Parent',figHandle, ...
-        'Units','normalized', ...
-        'Position',[0 0 1 1]);
-
-    if isRGB
-        image(ax,montageImg);
-    else
-        imshow(montageImg,[],'Parent',ax);
-    end
-
-    axis(ax,'image');
-    axis(ax,'off');
-
-    set(figHandle,'Position',[100 100 size(montageImg,2) size(montageImg,1)]);
-
-    drawnow;
 end

@@ -306,7 +306,8 @@ if ~isfile(tiffFile) || ~isfield(Ventilation, 'Mask_Proton_boundaries')
     HImage = Proton.Image;
     frameH = size(HImage,1);
     frameW = size(HImage,2);
-    nSlices = size(maskarray,3);
+    % nSlices = size(maskarray,3); %RH edit
+    nSlices = min(size(maskarray,3), size(HImage,3));  %%RH edit
     Mask_Proton_boundaries = uint8(zeros(frameH,frameW,3,nSlices));
     for slice = 1:nSlices
         lungMaskSlice = Ventilation.LungMask(:,:,slice);

@@ -156,11 +156,7 @@ elseif strcmp(MainInput.AnalysisType,'GasExchange')
 end
 
 if ~isfield(MainInput, 'Recon')
-    if strcmp(MainInput.XeDataext,'.dcm')  
-        MainInput.Recon = 'Online';
-    else
-        MainInput.Recon = 'Offline';
-    end
+    MainInput.Recon = 'Online'; % RH: default changed from Offline (was conditional on .dcm)
 end
 if ~isfield(MainInput, 'CCHMC_DbVentAnalysis')
     MainInput.CCHMC_DbVentAnalysis = 'no';
@@ -284,9 +280,11 @@ elseif strcmp(MainInput.XeDataext,'.nii') || strcmp(MainInput.XeDataext,'.gz') =
         
         A=A1.img;
         A = double(squeeze(A));
-        A=imrotate(A,90);
-        A=flip(A,2); % Original                   
-        Image=A;        
+        % RH: rotate/flip adopted to keep data in correct orientation after
+        % first time
+        A=flip(A,1);
+        A=imrotate(A,270);
+        Image=A;
     if strcmp(MainInput.AnalysisType,'Ventilation') == 1                 
         Ventilation.Image = Image;
         Ventilation.filename = file_name;
@@ -706,9 +704,11 @@ try
                 end            
                 A=A1.img;
                 A = double(squeeze(A));
-                I90=imrotate(A,90);
-                Ifv=flip(I90,2); % Original                   
-                HImage=Ifv;        
+                % RH: rotate/flip adopted to keep data in correct orientation after
+                % first time
+                A=flip(A,1);
+                A=imrotate(A,270);
+                HImage=A;
                 Proton.Image = HImage;
                 Proton.filename = file_name;
                 Proton.folder = file_folder;

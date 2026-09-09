@@ -25,7 +25,7 @@ function [Diffusion] = Diffusion_Analysis(Diffusion,MainInput)
 WinBUGSPath = mfilename('fullpath');
 idcs = strfind(WinBUGSPath,filesep);%determine location of file separators
 WinBUGSPath = [WinBUGSPath(1:idcs(end)-1),filesep];%remove file
-WinBUGSPath = [WinBUGSPath,'\WinBUGS14'];
+WinBUGSPath = [WinBUGSPath,'WinBUGS14']; % RH: filesep already appended above; WinBUGS itself is Windows-only regardless
 
 % WinBUGSPath = 'P:\OneDrive - cchmc\Lab\WinBUGS14';
 
@@ -130,8 +130,9 @@ if ~isempty(MainInput.OutputPath)
 else 
     DataLocation = MainInput.XeDataLocation;
     cd(DataLocation)
-    mkdir([DataLocation '\Diffusion_Analysis']);
-    outputpath = [DataLocation '\Diffusion_Analysis\'];
+    % RH: fullfile instead of backslash concat
+    mkdir(fullfile(DataLocation, 'Diffusion_Analysis'));
+    outputpath = fullfile(DataLocation, 'Diffusion_Analysis');
 end
 cd(outputpath)
 %% Healthy Reference 
@@ -271,7 +272,7 @@ if strcmp(Diffusion.writereport,'yes')
     DiffusionFunctions.DiffusionAnalysis_Report(Diffusion, MainInput);
 end
 %% save maps in mat file
-save_data=[outputpath,'\workspace.mat'];
+save_data=fullfile(outputpath,'workspace.mat'); % RH: fullfile instead of backslash concat
 save(save_data);   
 
 DiffusionExcelFile = fullfile(outputpath, 'Diffusion_workspace.xlsx');

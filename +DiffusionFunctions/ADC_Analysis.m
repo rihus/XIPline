@@ -237,21 +237,22 @@ delete_if_exist('DiffusionImage*.nii*');
 delete_if_exist('LungMask*.nii*');
 delete_if_exist('AirwayMask*.nii*');
 
+% RH: fullfile instead of backslash concat (broke niftiwrite's gzip step on macOS/Linux)
 % diffusion images
-niftiwrite(abs(fliplr(rot90(diffimg,-1))),[outputpath,'\DiffusionImage.nii'],'Compressed',true);
-info = niftiinfo([outputpath,'\DiffusionImage.nii.gz']);
+niftiwrite(abs(fliplr(rot90(diffimg,-1))),fullfile(outputpath,'DiffusionImage.nii'),'Compressed',true);
+info = niftiinfo(fullfile(outputpath,'DiffusionImage.nii.gz'));
 info.Description = strcat('Package Version: ', 'Version1');
-niftiwrite(abs(fliplr(rot90(diffimg,-1))),[outputpath,'\DiffusionImage.nii'],info,'Compressed',true);
+niftiwrite(abs(fliplr(rot90(diffimg,-1))),fullfile(outputpath,'DiffusionImage.nii'),info,'Compressed',true);
 % lung mask
-niftiwrite(abs(fliplr(rot90(final_mask,-1))),[outputpath,'\LungMask.nii'],'Compressed',true);
-info = niftiinfo([outputpath,'\LungMask.nii.gz']);
+niftiwrite(abs(fliplr(rot90(final_mask,-1))),fullfile(outputpath,'LungMask.nii'),'Compressed',true);
+info = niftiinfo(fullfile(outputpath,'LungMask.nii.gz'));
 info.Description = strcat('Package Version: ', 'Version1');
-niftiwrite(abs(fliplr(rot90(final_mask,-1))),[outputpath,'\LungMask.nii'],info,'Compressed',true);
+niftiwrite(abs(fliplr(rot90(final_mask,-1))),fullfile(outputpath,'LungMask.nii'),info,'Compressed',true);
 % airway mask
-niftiwrite(abs(fliplr(rot90(airway_mask,-1))),[outputpath,'\AirwayMask.nii'],'Compressed',true);
-info = niftiinfo([outputpath,'\AirwayMask.nii.gz']);
+niftiwrite(abs(fliplr(rot90(airway_mask,-1))),fullfile(outputpath,'AirwayMask.nii'),'Compressed',true);
+info = niftiinfo(fullfile(outputpath,'AirwayMask.nii.gz'));
 info.Description = strcat('Package Version: ', 'Version1');
-niftiwrite(abs(fliplr(rot90(airway_mask,-1))),[outputpath,'\AirwayMask.nii'],info,'Compressed',true);
+niftiwrite(abs(fliplr(rot90(airway_mask,-1))),fullfile(outputpath,'AirwayMask.nii'),info,'Compressed',true);
 
 
 %% Output mask boundaries  with xenon image overlays:
@@ -262,7 +263,7 @@ cus_colormap(:,1) = 1; % Red channel
 cus_colormap(:,2) = 0; % Green channel
 cus_colormap(:,3) = 1; % Blue channel
 
-tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized');%figure for tiffs
+tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized','Color','black');%figure for tiffs; RH: explicit black - default figure gray (245,245,245) was showing as gaps when slices got tiled into a montage
 ax1 = axes('Parent',tiff);ax2 = axes('Parent',tiff);%make axis for both images
 set(ax1,'Visible','off');set(ax2,'Visible','off');%turn off axis
 set(ax1,'units','inches');set(ax2,'units','inches');%make axis units inches
@@ -295,13 +296,20 @@ for slice=1:size(final_mask,3) %repeat for rest of slices
     end
 
     [~,~] = Global.imoverlay(squeeze(abs(MR2(:,:,slice))),squeeze(maskboundaries),[1,100],[0,max(MR2(:))*0.9],cus_colormap,1,gca);
-    colormap(gca,cus_colormap)     
+    colormap(gca,cus_colormap)
+    drawnow; % RH: avoids macOS getframe first-frame size inconsistency
     Xdata = getframe(gcf);
-    X = Xdata.cdata;     
+    X = Xdata.cdata;
+    if slice == 1
+        targetFrameSize = [size(X,1), size(X,2)]; % RH: track first frame size
+    elseif ~isequal([size(X,1), size(X,2)], targetFrameSize)
+        X = imresize(X, targetFrameSize); % RH: defensive resize to match
+    end
+    % RH: fullfile instead of backslash concat
     if (slice == 1)
-        imwrite(X,[outputpath,'\maskboundaries.tif'],'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
+        imwrite(X,fullfile(outputpath,'maskboundaries.tif'),'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
     else
-        imwrite(X,[outputpath,'\maskboundaries.tif'],'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
+        imwrite(X,fullfile(outputpath,'maskboundaries.tif'),'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
     end
 end
 disp('maskboundariesTiff Completed.')
@@ -597,7 +605,7 @@ lgd.FontSize = 16;   % <-- bigger legend
 % title(sprintf('ADC Histogram | Patient: \\mu=%.3f, \\sigma=%.3f, CV=%.1f%%%% | Ref: \\mu=%.3f, \\sigma=%.3f, CV=%.1f%%%%', ...
 %     ADC_mean, ADC_std, ADC_cv, ADCLB_RefMean, ADCLB_RefSD, ADCLB_RefCV));
 
-saveas(gca, 'ADC_Histogram.png');
+exportgraphics(gca, 'ADC_Histogram.png','Resolution',200); % RH: tight crop (saveas left excess whitespace, causing overlap onto the table when placed in the report)
 
 % If you still need the colormap modification
 cmap = colormap(jet);
@@ -627,7 +635,7 @@ Ndiffimg = Diffusion.Image;
 Ndiffimg = (Ndiffimg - min(Ndiffimg(:)))/(max(Ndiffimg(:)) - min(Ndiffimg(:)));
 
 %% %% write tiff and read back Binneddiff maps
-tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized');%figure for tiffs
+tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized','Color','black');%figure for tiffs; RH: explicit black - default figure gray (245,245,245) was showing as gaps when slices got tiled into a montage
 ax1 = axes('Parent',tiff);ax2 = axes('Parent',tiff);%make axis for both images
 set(ax1,'Visible','off');set(ax2,'Visible','off');%turn off axis 
 set(ax1,'units','inches');set(ax2,'units','inches');%make axis units inches
@@ -649,12 +657,19 @@ for slice=1:size(ADCmap,3) %repeat for rest of slices
         clim(gca,[0 0.14]);
     end
 %     X = print('-RGBImage',['-r',num2str(size(ADCmap,2)/2)]);%2 inches
+     drawnow; % RH: avoids macOS getframe first-frame size inconsistency
      Xdata = getframe(gcf);
-     X = Xdata.cdata;    
+     X = Xdata.cdata;
+    if slice == 1
+        targetFrameSize = [size(X,1), size(X,2)]; % RH: track first frame size
+    elseif ~isequal([size(X,1), size(X,2)], targetFrameSize)
+        X = imresize(X, targetFrameSize); % RH: defensive resize to match
+    end
+    % RH: fullfile instead of backslash concat
     if (slice == 1)
-        imwrite(X,[outputpath,'\ADCmap.tif'],'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
+        imwrite(X,fullfile(outputpath,'ADCmap.tif'),'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
     else
-        imwrite(X,[outputpath,'\ADCmap.tif'],'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
+        imwrite(X,fullfile(outputpath,'ADCmap.tif'),'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
     end
 end
 disp('Saving ADCmap Tiff Completed.')

@@ -172,8 +172,7 @@ ADC_BinTable = table({'ADC(cm2/s)';'std'; 'Percent(%)'},...
                      [Mean_ADC_Bin5;Std_ADC_Bin5;DiffHigh1Percent],...
                      [Mean_ADC_Bin6;Std_ADC_Bin6;DiffHigh2Percent]);
 ADC_BinTable.Properties.VariableNames = headers;
-excel_file_name = ['\','LB_ADC_Summary.xlsx'];
-writetable(ADC_BinTable,[DataLocation,excel_file_name],'Sheet',1)
+writetable(ADC_BinTable,fullfile(DataLocation,'LB_ADC_Summary.xlsx'),'Sheet',1) % RH: fullfile instead of backslash concat
 
 % saveas(gca,'MeanSTDPercent_ADCBins.png');
 % close all;
@@ -296,9 +295,9 @@ xlim([0 0.14])
 legend1 = sprintf('LDP:%1.1f%%  ' ,DiffLowPercent);
 legend2 = sprintf('NDP:%1.1f%%  ' ,DiffNormalPercent);
 legend3 = sprintf('HDP:%1.1f%%  ' ,DiffHighPercent);
-legend4 = sprintf('Mean: %1.4f±%1.4f ',round(DiffMean,4),round(DiffStd,4));
+legend4 = sprintf('Mean: %1.4fÂ±%1.4f ',round(DiffMean,4),round(DiffStd,4));
 
-Mean_Healthy_predicted=sprintf('Healthy: %1.4f±%1.4f ',HealthyADCmean,HealthyADCstd);
+Mean_Healthy_predicted=sprintf('Healthy: %1.4fÂ±%1.4f ',HealthyADCmean,HealthyADCstd);
 lgd = legend([legend1  legend2  legend3  legend4],Mean_Healthy_predicted);
 lgd.FontSize = 16;   % <-- bigger legend
 title('Linear Binning ADC Histogram','Fontweight','bold','FontSize',15)
@@ -306,7 +305,7 @@ xlabel('ADC (cm^2/s)')
 set(gca,'FontSize',20, 'FontWeight','bold')
 hold off
 cd(DataLocation)
-saveas(gca,'LB_ADC_Histogram.png');
+exportgraphics(gca,'LB_ADC_Histogram.png','Resolution',200); % RH: tight crop (saveas left excess whitespace, causing overlap onto the table when placed in the report)
 close all;
 
 %% Creating color maps for Diffusion 
@@ -369,7 +368,7 @@ saveas(gca,'LinearBinningADCMontage.png');
 close all;
 
 %% %% write tiff and read back Binneddiff maps
-tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized');%figure for tiffs
+tiff = figure('MenuBar','none','ToolBar','none','DockControls','off','Resize','off','WindowState','minimized','Color','black');%figure for tiffs; RH: explicit black - default figure gray (245,245,245) was showing as gaps when slices got tiled into a montage
 ax1 = axes('Parent',tiff);ax2 = axes('Parent',tiff);%make axis for both images
 set(ax1,'Visible','off');set(ax2,'Visible','off');%turn off axis 
 set(ax1,'units','inches');set(ax2,'units','inches');%make axis units inches
@@ -383,12 +382,19 @@ for slice=1:size(DiffBinMap2,3) %repeat for rest of slices
     [~,~] = Global.imoverlay(squeeze(abs(Proton_Image(:,:,slice))),squeeze(DiffBinMap2(:,:,slice)),[1,6],[0,0.99*max(Proton_Image(:))],colormap_Bins,1,gca);
     colormap(gca,colormap_Bins); %caxis([0 0.14]);   
 %     X = print('-RGBImage',['-r',num2str(size(DiffBinMap2,2)/2)]);%2 inches
+     drawnow; % RH: avoids macOS getframe first-frame size inconsistency
      Xdata = getframe(gcf);
-     X = Xdata.cdata;     
+     X = Xdata.cdata;
+    if slice == 1
+        targetFrameSize = [size(X,1), size(X,2)]; % RH: track first frame size
+    elseif ~isequal([size(X,1), size(X,2)], targetFrameSize)
+        X = imresize(X, targetFrameSize); % RH: defensive resize to match
+    end
+    % RH: fullfile instead of backslash concat
     if (slice == 1)
-        imwrite(X,[DataLocation,'\BinnedADCmap.tif'],'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
+        imwrite(X,fullfile(DataLocation,'BinnedADCmap.tif'),'Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%write new/ overwrite tiff
     else
-        imwrite(X,[DataLocation,'\BinnedADCmap.tif'],'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
+        imwrite(X,fullfile(DataLocation,'BinnedADCmap.tif'),'WriteMode','append','Description',strcat('Package Version: ', '1','; Cohort: ', 'test'));%append tiff
     end
 end
 disp('Saving BinnedADCmap Tiff Completed.')
@@ -515,17 +521,17 @@ Global.exportToPPTX('addpicture',LBADC_hist,'Position',[0 4.5 7.5 7.5*(size(LBAD
 
 %ADC Bins Summary
 [~,pm,~,zm] = ztest(DiffMean,HealthyADCmean,HealthyADCstd);
-Global.exportToPPTX('addtext',sprintf(['Mean: ',num2str(DiffMean,'%1.4f'),'±',num2str(DiffStd,'%1.4f'),' (Predicted Healthy = ',num2str(HealthyADCmean,'%1.4f'),'±',num2str(HealthyADCstd,'%1.4f'),'); Z = ',num2str(zm,'%1.4f'),', P = ',num2str(pm,'%1.4f')]),'Position',[6.5 5.5 9.5 2],'HorizontalAlignment','center');
+Global.exportToPPTX('addtext',sprintf(['Mean: ',num2str(DiffMean,'%1.4f'),'Â±',num2str(DiffStd,'%1.4f'),' (Predicted Healthy = ',num2str(HealthyADCmean,'%1.4f'),'Â±',num2str(HealthyADCstd,'%1.4f'),'); Z = ',num2str(zm,'%1.4f'),', P = ',num2str(pm,'%1.4f')]),'Position',[6.5 5.5 9.5 2],'HorizontalAlignment','center');
 BinTable   = { ...
     '',{'LDR1','BackgroundColor',SixBinMap(1,:),'FontWeight','bold'},{'LDR2','BackgroundColor',SixBinMap(2,:),'FontWeight','bold'},{'Normal1','BackgroundColor',SixBinMap(3,:),'FontWeight','bold'},{'Normal2','BackgroundColor',SixBinMap(4,:),'FontWeight','bold'},{'HDR1','BackgroundColor',SixBinMap(5,:),'FontWeight','bold','Color','w'},{'HDR2','BackgroundColor',SixBinMap(6,:),'FontWeight','bold','Color','w'};...
     'Bins','Bin 1','Bin 2','Bin 3','Bin 4','Bin 5','Bin 6';...
     'Percent (%)',num2str(DiffLow1Percent,'%1.3f'),num2str(DiffLow2Percent,'%1.3f'),num2str(DiffNormal1Percent,'%1.3f'),num2str(DiffNormal2Percent,'%1.3f'),num2str(DiffHigh1Percent,'%1.3f'),num2str(DiffHigh2Percent,'%1.3f');...
-    'ADC (cm^2/s)',[num2str(Mean_ADC_Bin1,'%1.3f'),'±',num2str(Std_ADC_Bin1,'%1.3f')],...
-                     [num2str(Mean_ADC_Bin2,'%1.3f'),'±',num2str(Std_ADC_Bin2,'%1.3f')],...
-                     [num2str(Mean_ADC_Bin3,'%1.3f'),'±',num2str(Std_ADC_Bin3,'%1.3f')],...
-                     [num2str(Mean_ADC_Bin4,'%1.3f'),'±',num2str(Std_ADC_Bin4,'%1.3f')],...
-                     [num2str(Mean_ADC_Bin5,'%1.3f'),'±',num2str(Std_ADC_Bin5,'%1.3f')],...
-                     [num2str(Mean_ADC_Bin6,'%1.3f'),'±',num2str(Std_ADC_Bin6,'%1.3f')],;...
+    'ADC (cm^2/s)',[num2str(Mean_ADC_Bin1,'%1.3f'),'Â±',num2str(Std_ADC_Bin1,'%1.3f')],...
+                     [num2str(Mean_ADC_Bin2,'%1.3f'),'Â±',num2str(Std_ADC_Bin2,'%1.3f')],...
+                     [num2str(Mean_ADC_Bin3,'%1.3f'),'Â±',num2str(Std_ADC_Bin3,'%1.3f')],...
+                     [num2str(Mean_ADC_Bin4,'%1.3f'),'Â±',num2str(Std_ADC_Bin4,'%1.3f')],...
+                     [num2str(Mean_ADC_Bin5,'%1.3f'),'Â±',num2str(Std_ADC_Bin5,'%1.3f')],...
+                     [num2str(Mean_ADC_Bin6,'%1.3f'),'Â±',num2str(Std_ADC_Bin6,'%1.3f')],;...
     };
 Global.exportToPPTX('addtable',BinTable,'Position',[7.5 6 7.75 2],'Vert','middle','Horiz','center','FontSize',12);
 
@@ -567,7 +573,7 @@ Diffusion.NDR = DN1 + DN2;       % Normal diffusion
 Diffusion.HDR = DH1 + DH2;       % High diffusion
 
 %% save .m file
-save_data=[DataLocation,'\','ADC_LinearBinningAnalysis','.mat'];
+save_data=fullfile(DataLocation,'ADC_LinearBinningAnalysis.mat'); % RH: fullfile instead of backslash concat
 save(save_data); 
 %% 
 

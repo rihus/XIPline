@@ -857,7 +857,7 @@ for ipara=1:numParas,
         %             (~isempty(paraText{min(ipara+1,numParas)}) && ipara+1<=numParas && paraText{min(ipara+1,numParas)}(1)=='-') ),
             addParaText(1)      = [];   % remove the actual character
             setNodeAttribute(pPr,{'marL',useMargin*PPTXInfo.CONST.IN_TO_EMU,'indent',-defMargin*PPTXInfo.CONST.IN_TO_EMU});
-            addNode(fileXML,pPr,'a:buChar',{'char','•'});   % TODO: add character control here
+            addNode(fileXML,pPr,'a:buChar',{'char','ï¿½'});   % TODO: add character control here
         end
         
         if allowMarkdown && length(paraText{ipara})>=2 && isequal(paraText{ipara}(1:2),'# '),
@@ -2064,6 +2064,7 @@ elseif isnumeric(imgData) && numel(imgData)>1,
     
 elseif ishghandle(imgData,'Figure') || ishghandle(imgData,'Axes'),
     % Either figure or axes handle
+    drawnow; % RH: avoids macOS getframe first-frame size inconsistency
     img         = getframe(imgData);
     imageName   = sprintf('image-%d-%d.png',PPTXInfo.currentSlide,objId);
     imagePath   = fullfile(PPTXInfo.tempName,'ppt','media',imageName);

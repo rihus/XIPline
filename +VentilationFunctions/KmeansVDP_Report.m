@@ -283,26 +283,10 @@ function KmeansVDP_Report(Ventilation, Proton, MainInput)
     close all;
     
     % save report as a PDF
-    % RH: actxserver (ActiveX/COM) only exists on Windows — PowerPoint-driven
-    % PDF export has no direct macOS/Linux equivalent, so it's skipped there;
-    % the pptx report above is still saved on every platform.
-    if ispc
-        ppt = actxserver('PowerPoint.Application');
-
-        presentation = ppt.Presentations.Open(pptxName);
-        PDFoutputPath = fullfile(pptDir,[pptxFileName,'.pdf']);
-        if exist(PDFoutputPath, 'file')
-            delete(PDFoutputPath);  % remove existing PDF to avoid overwrite conflict
-        end
-        presentation.SaveAs(PDFoutputPath, 32);
-        pause(2);  % <-- allow time for file to be written
-        presentation.Close();
-        ppt.Quit();
-        delete(ppt);
-    else
-        PDFoutputPath = fullfile(pptDir,[pptxFileName,'.pdf']);
-        disp('Skipping PDF export (PowerPoint COM automation is Windows-only).');
-    end
+    % RH: PDF export now goes through Global.pptxToPdf, which uses
+    % PowerPoint COM on Windows and PowerPoint via AppleScript on macOS.
+    PDFoutputPath = fullfile(pptDir,[pptxFileName,'.pdf']);
+    Global.pptxToPdf(pptxName, PDFoutputPath);
 end
 
 % Local function
